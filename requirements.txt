@@ -1,0 +1,23 @@
+# --- Backend / API ---
+fastapi
+uvicorn[standard]
+
+# --- Multi-agent orchestration & LLM ---
+langgraph
+langchain
+langchain-core
+langchain-openai
+
+# --- MCP layer ---
+mcp
+fastmcp
+langchain-mcp-adapters
+
+# --- Frontend ---
+gradio
+
+# --- HTTP / config ---
+httpx
+requests
+python-dotenv
+pydantic

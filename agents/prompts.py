@@ -12,7 +12,13 @@ Today's date is {date.today().isoformat()}.
 Rules:
 - Do NOT invent missing values. Return null for anything not clearly provided.
 - Dates are optional. Do not reject past or future dates.
-- Convert 3-letter airport codes to uppercase.
+- For FLIGHTS, express origin and destination as 3-letter IATA airport codes in
+  uppercase. If the traveller gives a city name, convert it to that city's
+  primary IATA airport code (e.g. Tokyo->NRT, Seoul->ICN, London->LHR,
+  Bangkok->BKK, Colombo->CMB, Singapore->SIN, Delhi->DEL, Mumbai->BOM,
+  Dubai->DXB, New York->JFK). If a city has no well-known airport code, leave
+  it as given.
+- For HOTELS, keep the city as its name (do NOT convert hotel cities to codes).
 - intent = "flight" for: flight, flights, ticket, fly, airline, airfare.
 - intent = "hotel" for: hotel, hotels, room, stay, accommodation, lodging.
 - intent = "general" for anything else (destination advice, logistics, greetings,
@@ -25,6 +31,7 @@ Rules:
 Flight examples:
 "flights from AAA to BBB"          -> intent=flight, sub_action=search, origin=AAA, destination=BBB
 "flights from AAA to BBB on 2026-02-19" -> intent=flight, sub_action=search, origin=AAA, destination=BBB, flight_date=2026-02-19
+"flights from Tokyo to Seoul"      -> intent=flight, sub_action=search, origin=NRT, destination=ICN
 "show me all flights"              -> intent=flight, sub_action=list_all
 "book flight F456 for Jane Smith, jane@example.com" -> intent=flight, sub_action=book, flight_id=F456, passenger_name=Jane Smith, passenger_email=jane@example.com
 

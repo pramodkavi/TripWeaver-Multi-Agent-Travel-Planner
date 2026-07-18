@@ -3,8 +3,9 @@ title: TripWeaver Multi Agent Travel Planner
 emoji: ✈️
 colorFrom: green
 colorTo: orange
-sdk: docker
-app_port: 7860
+sdk: gradio
+sdk_version: 6.20.0
+app_file: app.py
 pinned: false
 ---
 
@@ -76,7 +77,14 @@ pip install -r requirements.txt
 cp .env.example .env          # then edit .env and set OPENAI_API_KEY
 ```
 
-### Run (4 terminals, in this order)
+### Run (one command)
+`app.py` starts all four processes (MCP servers + backend + UI):
+```bash
+python app.py
+```
+Open **http://localhost:7860**.
+
+### Run (4 terminals, if you prefer them separate)
 ```bash
 # 1) Hotel MCP server   (port 8001)
 python -m mcp_servers.hotel_server
@@ -87,10 +95,11 @@ python main.py
 # 4) Frontend UI        (port 7860)
 python frontend.py
 ```
-Open **http://localhost:7860**. Sanity check: `curl http://localhost:8000/health`.
+Sanity check: `curl http://localhost:8000/health`.
 
-### Run with Docker (optional, single container)
-Runs all four processes in one container (same as the deployed Space):
+### Run with Docker (optional, other hosts)
+A `Dockerfile` + `start.sh` are included for hosts that support Docker
+(Hugging Face's free tier does not — see below):
 ```bash
 docker build -t tripweaver .
 docker run -p 7860:7860 -e OPENAI_API_KEY=sk-... tripweaver
@@ -98,10 +107,10 @@ docker run -p 7860:7860 -e OPENAI_API_KEY=sk-... tripweaver
 
 ## Deployment (Hugging Face Spaces + GitHub Actions)
 
-Deployed as an all-in-one **Docker Space**; a GitHub Actions workflow mirrors
-the repo to the Space on every push to `main`, and Hugging Face builds the
-image (no local Docker required). Full steps:
-**[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
+Deployed as a free **Gradio Space** (Docker Spaces now require a paid plan). The
+Space runs `app.py`, which launches the MCP servers + backend + Gradio UI as
+separate processes. A GitHub Actions workflow mirrors the repo to the Space on
+every push to `main`. Full steps: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
 
 ## Configuration (environment variables)
 

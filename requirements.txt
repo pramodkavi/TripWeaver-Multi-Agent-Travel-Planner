@@ -14,7 +14,8 @@ fastmcp
 langchain-mcp-adapters
 
 # --- Frontend ---
-gradio
+# Pinned to match the Hugging Face Space sdk_version in README.md.
+gradio==6.20.0
 
 # --- HTTP / config ---
 httpx

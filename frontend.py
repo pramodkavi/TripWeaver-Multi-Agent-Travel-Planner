@@ -247,4 +247,5 @@ if __name__ == "__main__":
         css=CSS,
         server_name=os.environ.get("FRONTEND_HOST", "0.0.0.0"),
         server_port=int(os.environ.get("FRONTEND_PORT", "7860")),
+        ssr_mode=False,  # no Node.js in the container image
     )

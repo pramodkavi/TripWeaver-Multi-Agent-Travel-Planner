@@ -1,0 +1,41 @@
+name: Deploy to Hugging Face Spaces
+
+# Pushes the repository to a Hugging Face Space on every push to main.
+# Hugging Face then builds the Docker image and runs the app — no Docker is
+# needed locally or in CI, this job only mirrors the git repo.
+#
+# Required GitHub repository secrets (Settings → Secrets and variables → Actions):
+#   HF_TOKEN     - a Hugging Face access token with WRITE permission
+#   HF_USERNAME  - your Hugging Face username (e.g. pramodkavi)
+#   HF_SPACE     - the Space name (e.g. tripweaver)
+#
+# The Space must already exist as a Docker Space, and OPENAI_API_KEY must be set
+# as a secret inside the Space (Settings → Variables and secrets).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_USERNAME: ${{ secrets.HF_USERNAME }}
+          HF_SPACE: ${{ secrets.HF_SPACE }}
+        run: |
+          if [ -z "$HF_TOKEN" ] || [ -z "$HF_USERNAME" ] || [ -z "$HF_SPACE" ]; then
+            echo "Missing HF_TOKEN / HF_USERNAME / HF_SPACE secrets." >&2
+            exit 1
+          fi
+          git push --force \
+            "https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/spaces/${HF_USERNAME}/${HF_SPACE}" \
+            HEAD:main

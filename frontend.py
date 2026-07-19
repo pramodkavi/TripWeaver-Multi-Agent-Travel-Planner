@@ -1,14 +1,8 @@
-"""Gradio frontend for TripWeaver.
+"""Gradio chat UI.
 
-A travel-themed, responsive chat UI that consumes the backend's Server-Sent
-Event stream so the traveller sees the agent working in real time:
-- activity cues ("Searching hotel suggestions…", "Booking hotel…") act as the
-  loading indicator while agents work,
-- the reply streams in token-by-token,
-- hotel/flight results are rendered as a clean table,
-- backend/service failures surface as friendly messages, never stack traces.
-
-Configuration comes from the environment (TRAVEL_PLANNER_API_URL).
+Consumes the backend's SSE stream to show activity cues, stream the reply,
+render hotel/flight results as a table, and show friendly errors. The backend
+URL comes from TRAVEL_PLANNER_API_URL.
 """
 
 import json
@@ -33,14 +27,11 @@ ACTIVITY_FALLBACK = {
 }
 
 
-# --------------------------------------------------------------------------- #
-# SSE client
-# --------------------------------------------------------------------------- #
 def _stream_events(message: str, history_pairs: list):
     """Yield decoded event dicts from the backend SSE stream.
 
-    Any transport failure is turned into a single ``error`` event so the UI can
-    show a friendly message instead of raising.
+    A transport failure becomes a single ``error`` event so the UI can show a
+    friendly message instead of raising.
     """
     payload = {"message": message, "history": history_pairs}
     try:
@@ -65,9 +56,6 @@ def _stream_events(message: str, history_pairs: list):
         }
 
 
-# --------------------------------------------------------------------------- #
-# Formatting
-# --------------------------------------------------------------------------- #
 def _to_pairs(history: list) -> list:
     """Convert Gradio 'messages' history into [user, assistant] pairs."""
     pairs, pending = [], None
@@ -118,7 +106,7 @@ def _flights_table(flights: list) -> str:
 
 
 def _compose_final(answer: str, result: dict) -> str:
-    """Headline sentence + a rich table when structured results are present."""
+    """Headline sentence plus a table when structured results are present."""
     hotels = (result or {}).get("hotels") or []
     flights = (result or {}).get("flights") or []
     if hotels:
@@ -130,9 +118,6 @@ def _compose_final(answer: str, result: dict) -> str:
     return answer
 
 
-# --------------------------------------------------------------------------- #
-# Chat handler (streaming generator)
-# --------------------------------------------------------------------------- #
 def respond(message: str, history: list):
     message = (message or "").strip()
     if not message:
@@ -146,7 +131,6 @@ def respond(message: str, history: list):
     ]
     yield history, ""  # clear the input box immediately
 
-    activity_label = ""
     answer = ""
     result = None
     error = None
@@ -157,7 +141,6 @@ def respond(message: str, history: list):
         if etype == "activity":
             label = event.get("label") or ACTIVITY_FALLBACK.get(event.get("activity", ""), "")
             if label and not answer:
-                activity_label = label
                 history[-1]["content"] = f"_⏳ {label}_"
                 yield history, ""
 
@@ -182,9 +165,6 @@ def respond(message: str, history: list):
     yield history, ""
 
 
-# --------------------------------------------------------------------------- #
-# UI
-# --------------------------------------------------------------------------- #
 THEME = gr.themes.Soft(primary_hue="teal", secondary_hue="orange")
 
 CSS = """
@@ -247,5 +227,5 @@ if __name__ == "__main__":
         css=CSS,
         server_name=os.environ.get("FRONTEND_HOST", "0.0.0.0"),
         server_port=int(os.environ.get("FRONTEND_PORT", "7860")),
-        ssr_mode=False,  # no Node.js in the container image
+        ssr_mode=False,
     )

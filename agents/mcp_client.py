@@ -1,13 +1,9 @@
-"""MCP client bootstrap — the only bridge between agents and external services.
+"""Bridge between the agents and the travel MCP servers.
 
-Agents never import service logic directly. They discover tools from the
-hotel/flight MCP servers here (endpoints from env) and invoke them by name.
-Adding or swapping a service means changing config/servers only, not agent code.
-
-Resilience (SRS E3): servers are loaded independently, so if one MCP server is
-down its tools are simply absent and the other agent stays fully usable. Every
-tool call is wrapped so a transport failure returns a structured error dict
-instead of raising.
+Tools are discovered from the running servers (URLs from env) and called by
+name, so adding or swapping a service is a config change rather than an agent
+change. Each server is loaded independently and calls return a structured error
+instead of raising, so one server being down does not affect the others.
 """
 
 import json

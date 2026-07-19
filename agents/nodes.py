@@ -1,11 +1,8 @@
-"""LangGraph node functions: intent router + General QA, Hotel, Flight agents.
+"""Graph nodes: the intent router, the Hotel/Flight/General agents, and the
+response composer.
 
-Design:
-- The router extracts intent + parameters (this is where routing happens).
-- Hotel/Flight agents select and call the correct MCP tool (list/search/book),
-  ask a follow-up when required inputs are missing, and never fabricate data.
-- Every fact about hotels/flights originates from an MCP tool result.
-- MCP/service failures return a friendly message; the app never crashes.
+Agents only reach data through MCP tools, ask a follow-up when a required field
+is missing, and never invent hotel or flight details.
 """
 
 from functools import lru_cache
@@ -20,9 +17,6 @@ from .mcp_client import call_tool
 from .prompts import get_extraction_prompt, get_general_qa_prompt
 
 
-# --------------------------------------------------------------------------- #
-# Router: structured intent + parameter extraction
-# --------------------------------------------------------------------------- #
 class TravelExtraction(BaseModel):
     intent: Literal["hotel", "flight", "general"] = Field(
         default="general", description="Main user intent."
@@ -47,12 +41,10 @@ class TravelExtraction(BaseModel):
 
 @lru_cache(maxsize=1)
 def _get_extractor():
-    """Structured-output extractor, built lazily on first use."""
     return get_llm().with_structured_output(TravelExtraction)
 
 
 def _build_messages(system_prompt: str, history_messages: list, user_message: str) -> list:
-    """Reconstruct a message list (system + alternating history + new user turn)."""
     messages = [SystemMessage(content=system_prompt)]
     for i in range(0, len(history_messages), 2):
         messages.append(HumanMessage(content=history_messages[i]))
@@ -73,7 +65,7 @@ def router(state: GraphState) -> dict:
     try:
         data = _get_extractor().invoke(invocation).model_dump()
     except Exception:
-        # If extraction fails, fall back to the General QA agent rather than crash.
+        # Fall back to General QA rather than crash if extraction fails.
         data = {"intent": "general", "sub_action": "general"}
 
     return {
@@ -110,9 +102,6 @@ def route_after_router(state: GraphState) -> str:
     return "general"
 
 
-# --------------------------------------------------------------------------- #
-# Formatting helpers (operate on full MCP results)
-# --------------------------------------------------------------------------- #
 def _format_hotel(hotel: dict) -> str:
     name = hotel.get("name", "Unknown hotel")
     city = hotel.get("city", "unknown city")
@@ -158,9 +147,6 @@ def _as_list(result, key: str) -> list:
     return []
 
 
-# --------------------------------------------------------------------------- #
-# Hotel agent
-# --------------------------------------------------------------------------- #
 async def hotel_node(state: GraphState) -> dict:
     sub_action = state.get("sub_action", "search")
 
@@ -214,7 +200,6 @@ async def hotel_node(state: GraphState) -> dict:
             "response_text": confirmation,
         }
 
-    # search / list_all
     if sub_action == "search" and state.get("city"):
         args = {"city": state["city"]}
         if state.get("check_in"):
@@ -251,9 +236,6 @@ async def hotel_node(state: GraphState) -> dict:
     }
 
 
-# --------------------------------------------------------------------------- #
-# Flight agent
-# --------------------------------------------------------------------------- #
 async def flight_node(state: GraphState) -> dict:
     sub_action = state.get("sub_action", "search")
 
@@ -343,9 +325,6 @@ async def flight_node(state: GraphState) -> dict:
     }
 
 
-# --------------------------------------------------------------------------- #
-# General QA agent
-# --------------------------------------------------------------------------- #
 def general_qa_node(state: GraphState) -> dict:
     messages = state.get("messages", [])
     user_message = messages[-1] if messages else ""
@@ -370,14 +349,9 @@ def general_qa_node(state: GraphState) -> dict:
     }
 
 
-# --------------------------------------------------------------------------- #
-# Response composer
-# --------------------------------------------------------------------------- #
 def generate_response(state: GraphState) -> dict:
-    # A node already produced a message (clarify / booking / error / general).
     if state.get("response_text"):
-        # Preserve a CLARIFYING signal so the UI knows the turn ended with a
-        # follow-up question; otherwise we are simply responding.
+        # Keep a CLARIFYING signal so the UI knows the turn ended with a question.
         activity = state.get("activity")
         if activity != AgentActivity.CLARIFYING.value:
             activity = AgentActivity.RESPONDING.value

@@ -10,7 +10,7 @@ from typing import List, Optional, TypedDict
 
 
 class AgentActivity(str, Enum):
-    """UI-facing lifecycle states (SRS section 6)."""
+    """Lifecycle states the UI reflects while a turn is processed."""
 
     ROUTING = "ROUTING"        # graph is interpreting intent / selecting an agent
     SEARCHING = "SEARCHING"    # agent is awaiting a list/search MCP tool
@@ -20,7 +20,7 @@ class AgentActivity(str, Enum):
 
 
 class ToolCallStatus(str, Enum):
-    """MCP tool-call outcome (SRS section 6)."""
+    """Outcome of an MCP tool call."""
 
     NONE = "NONE"
     INVOKED = "INVOKED"

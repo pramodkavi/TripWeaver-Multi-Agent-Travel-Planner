@@ -1,17 +1,9 @@
-"""FastAPI backend for TripWeaver.
+"""FastAPI backend.
 
-Fronts the LangGraph multi-agent workflow. The primary endpoint, ``/chat``,
-streams Server-Sent Events so the UI can show the agent lifecycle in real time:
-
-    activity (ROUTING -> SEARCHING/BOOKING -> RESPONDING/CLARIFYING)
-    tool     (INVOKED -> SUCCEEDED/FAILED)
-    token    (response text, streamed)
-    result   (structured hotels/flights/booking for rich display)
-    done / error
-
-Everything is env-configured (host, port, CORS, MCP endpoints). Nothing here
-talks to external travel services directly — that only happens through the MCP
-layer, via the agent graph.
+Exposes the LangGraph workflow over HTTP. ``/chat`` streams Server-Sent Events
+(activity cues, tool status, response tokens, then the structured results) so
+the UI can show progress as it happens. All config comes from environment
+variables, and external services are only reached through the MCP layer.
 """
 
 import asyncio
@@ -37,12 +29,9 @@ MAX_HISTORY_PAIRS = int(os.getenv("MAX_HISTORY_PAIRS", "3"))
 TOKEN_DELAY = float(os.getenv("STREAM_TOKEN_DELAY", "0.02"))
 
 
-# --------------------------------------------------------------------------- #
-# App setup
-# --------------------------------------------------------------------------- #
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Warm up MCP tool discovery (best-effort; a down server must not block boot).
+    # Warm up tool discovery, but don't let a down server block startup.
     try:
         await get_tool_map()
     except Exception:
@@ -65,20 +54,15 @@ app.add_middleware(
 
 class ChatRequest(BaseModel):
     message: str
-    # Prior turns as [user, assistant] pairs (matches the graph's message list).
+    # Prior turns as [user, assistant] pairs.
     history: Optional[List[List[Optional[str]]]] = None
 
 
-# --------------------------------------------------------------------------- #
-# Helpers
-# --------------------------------------------------------------------------- #
 def _sse(event: dict) -> str:
-    """Encode a dict as one Server-Sent Event frame."""
     return f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
 
 
 def _build_messages(message: str, history: Optional[List[List[Optional[str]]]]) -> List[str]:
-    """Flatten [user, assistant] pairs + the new message into the graph's list."""
     flat: List[str] = []
     for pair in (history or [])[-MAX_HISTORY_PAIRS:]:
         if not pair:
@@ -102,14 +86,12 @@ _CUES = {
 
 
 def _cue_for(intent: str, sub_action: str):
-    """A human-friendly progress cue for the work the router just dispatched."""
     if intent == "general":
         return (AgentActivity.RESPONDING, "Thinking…")
     return _CUES.get((intent, sub_action), (AgentActivity.SEARCHING, "Working on it…"))
 
 
 def _tokenize(text: str) -> List[str]:
-    """Split text into stream chunks, preserving whitespace/newlines."""
     return re.findall(r"\S+\s*|\s+", text) or [text]
 
 
@@ -162,9 +144,6 @@ async def _event_stream(message: str, history):
     yield _sse({"type": "done"})
 
 
-# --------------------------------------------------------------------------- #
-# Endpoints
-# --------------------------------------------------------------------------- #
 @app.get("/")
 async def root():
     return {"service": "TripWeaver API", "status": "ok"}
@@ -172,7 +151,6 @@ async def root():
 
 @app.get("/health")
 async def health():
-    """Liveness + which MCP capabilities are currently reachable."""
     try:
         tools = await get_tool_map()
         names = sorted(tools.keys())
@@ -188,19 +166,16 @@ async def health():
 
 @app.get("/hotels")
 async def list_hotels():
-    """All hotels, fetched through the MCP layer (never a direct API call)."""
     return await call_tool("list_hotels", {})
 
 
 @app.get("/flights")
 async def list_flights():
-    """All flights, fetched through the MCP layer (never a direct API call)."""
     return await call_tool("list_flights", {})
 
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
-    """Stream the multi-agent response as Server-Sent Events."""
     return StreamingResponse(
         _event_stream(request.message, request.history),
         media_type="text/event-stream",

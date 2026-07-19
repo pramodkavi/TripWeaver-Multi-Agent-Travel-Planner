@@ -58,13 +58,19 @@ def main() -> None:
 
     print("Launching Gradio UI…", flush=True)
     demo = build_demo()
+    demo.queue()
     demo.launch(
         theme=THEME,
         css=CSS,
         server_name=os.environ.get("FRONTEND_HOST", "0.0.0.0"),
         server_port=int(os.environ.get("PORT", os.environ.get("FRONTEND_PORT", "7860"))),
         ssr_mode=False,
+        prevent_thread_lock=True,
     )
+    # Keep this process alive so the child servers and the Gradio server keep
+    # serving. On Spaces, launch() returns immediately (reload mode); without
+    # this the process would exit right after startup and the app would 500.
+    demo.block_thread()
 
 
 if __name__ == "__main__":
